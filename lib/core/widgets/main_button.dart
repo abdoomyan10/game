@@ -33,12 +33,15 @@ class MainButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: color ?? AppColors.primary,
           foregroundColor: textColor ?? AppColors.onPrimary,
-          minimumSize: const Size.fromHeight(48),
+          minimumSize: const Size.fromHeight(52),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radiusM),
+            borderRadius: BorderRadius.circular(AppTheme.radiusXL),
           ),
         ),
-        child: Text(text),
+        child: Text(
+          text,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
       ),
     );
   }

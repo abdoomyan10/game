@@ -14,6 +14,8 @@ import 'package:get_it/get_it.dart' as _i174;
 import 'package:injectable/injectable.dart' as _i526;
 import 'package:shared_preferences/shared_preferences.dart' as _i460;
 
+import '../../features/home/presentation/bloc/home_bloc.dart' as _i202;
+import '../../features/splash/presentation/bloc/splash_bloc.dart' as _i442;
 import '../network/api_client.dart' as _i557;
 import '../network/interceptors/logging_interceptor.dart' as _i344;
 import '../storage/local_storage.dart' as _i329;
@@ -32,6 +34,8 @@ extension GetItInjectableX on _i174.GetIt {
       () => registerModule.prefs,
       preResolve: true,
     );
+    gh.factory<_i202.HomeBloc>(() => _i202.HomeBloc());
+    gh.factory<_i442.SplashBloc>(() => _i442.SplashBloc());
     gh.lazySingleton<_i361.Dio>(() => registerModule.dio);
     gh.lazySingleton<_i344.LoggingInterceptor>(
       () => _i344.LoggingInterceptor(),

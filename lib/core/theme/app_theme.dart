@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
+import 'app_text_styles.dart';
 
 class AppTheme {
   AppTheme._();
@@ -26,57 +27,54 @@ class AppTheme {
 
   static ThemeData get light => ThemeData(
         useMaterial3: true,
-        colorScheme: const ColorScheme(
-          brightness: Brightness.light,
+        brightness: Brightness.dark,
+        colorScheme: const ColorScheme.dark(
           primary: AppColors.primary,
           onPrimary: AppColors.onPrimary,
           secondary: AppColors.secondary,
           onSecondary: AppColors.onSecondary,
-          tertiary: AppColors.tertiary,
-          error: AppColors.error,
-          onError: AppColors.onError,
           surface: AppColors.surface,
           onSurface: AppColors.onSurface,
+          error: AppColors.error,
+          onError: AppColors.onError,
         ),
         scaffoldBackgroundColor: AppColors.background,
         appBarTheme: const AppBarTheme(
-          backgroundColor: AppColors.primary,
-          foregroundColor: AppColors.onPrimary,
+          backgroundColor: Colors.transparent,
+          foregroundColor: AppColors.onBackground,
           centerTitle: true,
-          elevation: elevationM,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+        ),
+        textTheme: const TextTheme(
+          headlineLarge: AppTextStyles.headline,
+          titleLarge: AppTextStyles.title,
+          bodyLarge: AppTextStyles.body,
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
             foregroundColor: AppColors.onPrimary,
             elevation: elevationM,
+            minimumSize: const Size.fromHeight(52),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(radiusM),
+              borderRadius: BorderRadius.circular(radiusXL),
             ),
             padding: const EdgeInsets.symmetric(
               horizontal: spacingXL,
               vertical: spacingM,
             ),
+            textStyle: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: AppColors.surface,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: spacingL,
-            vertical: spacingM,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(radiusM),
-            borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(radiusM),
-            borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(radiusM),
-            borderSide: const BorderSide(color: AppColors.primary, width: 2),
+        cardTheme: CardThemeData(
+          color: AppColors.surface,
+          elevation: elevationS,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radiusXL),
           ),
         ),
       );

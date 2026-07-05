@@ -1,5 +1,5 @@
 class AppName {
   AppName._();
 
-  static const String title = 'Game';
+  static const String title = 'ألعاب';
 }

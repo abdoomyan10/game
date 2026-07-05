@@ -13,7 +13,7 @@ class App extends StatelessWidget {
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
-        initialRoute: AppRouter.initial,
+        initialRoute: AppRouter.splash,
         onGenerateRoute: AppRouter.onGenerateRoute,
       ),
     );
