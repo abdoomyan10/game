@@ -15,7 +15,7 @@
         android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
         tools:ignore="ScopedStorage"/>
     <application
-        android:label="template"
+        android:label="ALFARK GAMES"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

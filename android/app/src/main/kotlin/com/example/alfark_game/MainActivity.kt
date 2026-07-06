@@ -1,4 +1,4 @@
-package com.example.template
+package com.example.alfark_game
 
 import io.flutter.embedding.android.FlutterActivity
 
