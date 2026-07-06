@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../bloc/mafia_state.dart';
+import '../../domain/entities/mafia_victory_side.dart';
 
 class MafiaGameOverView extends StatelessWidget {
   const MafiaGameOverView({

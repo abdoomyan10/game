@@ -11,7 +11,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: GameCard(
-            title: 'لعبة ١',
+            title: 'Imposter ',
             subtitle: 'مغامرة',
             icon: Icons.extension,
             accentColor: AppColors.accentGame1,
@@ -21,7 +21,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('لعبة ١'));
+    await tester.tap(find.text('Imposter '));
     await tester.pumpAndSettle();
 
     expect(tapped, isTrue);

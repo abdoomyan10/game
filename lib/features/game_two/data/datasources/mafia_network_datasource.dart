@@ -4,6 +4,8 @@ import 'package:equatable/equatable.dart';
 
 import '../models/mafia_connection_health.dart';
 import '../models/mafia_payload_transfer_event.dart';
+import '../models/mafia_rejoin_request.dart';
+import '../models/mafia_session_control.dart';
 
 /// A nearby advertiser discovered during client discovery.
 class MafiaP2pEndpoint extends Equatable {
@@ -73,6 +75,9 @@ abstract class MafiaNetworkDataSource {
   Stream<String> get onEndpointDisconnected;
   Stream<String> get onEndpointLost;
 
+  Stream<MafiaRejoinRequest> get onRejoinRequested;
+  Stream<MafiaSessionControl> get onSessionControl;
+
   // --- Connection monitoring ---
   Stream<MafiaConnectionHealth> get connectionHealth;
   Stream<MafiaPayloadTransferEvent> get payloadTransferUpdates;
@@ -96,5 +101,11 @@ abstract class MafiaNetworkDataSource {
   Future<void> sendPhaseAck({
     required String correlationId,
     required String hostEndpointId,
+  });
+
+  Future<void> sendRejoin({
+    required String hostEndpointId,
+    required String playerId,
+    required String sessionToken,
   });
 }

@@ -11,6 +11,8 @@ import '../constants/mafia_p2p_constants.dart';
 import '../exceptions/mafia_p2p_exceptions.dart';
 import '../models/mafia_connection_health.dart';
 import '../models/mafia_payload_transfer_event.dart';
+import '../models/mafia_rejoin_request.dart';
+import '../models/mafia_session_control.dart';
 import 'mafia_network_datasource.dart';
 import 'mafia_p2p_protocol.dart';
 
@@ -44,6 +46,10 @@ class MafiaNetworkDataSourceImpl implements MafiaNetworkDataSource {
       StreamController<MafiaPayloadTransferEvent>.broadcast();
   final _phaseSyncAnnouncedController =
       StreamController<String>.broadcast();
+  final _rejoinRequestedController =
+      StreamController<MafiaRejoinRequest>.broadcast();
+  final _sessionControlController =
+      StreamController<MafiaSessionControl>.broadcast();
 
   final Set<String> _connectedEndpoints = {};
   final Map<int, String> _payloadEndpointById = {};
@@ -83,6 +89,14 @@ class MafiaNetworkDataSourceImpl implements MafiaNetworkDataSource {
   @override
   Stream<String> get onPhaseSyncAnnounced =>
       _phaseSyncAnnouncedController.stream;
+
+  @override
+  Stream<MafiaRejoinRequest> get onRejoinRequested =>
+      _rejoinRequestedController.stream;
+
+  @override
+  Stream<MafiaSessionControl> get onSessionControl =>
+      _sessionControlController.stream;
 
   @override
   Future<void> startHosting({required String userName}) async {
@@ -245,6 +259,19 @@ class MafiaNetworkDataSourceImpl implements MafiaNetworkDataSource {
     await sendIsolatedPayload(endpointId: hostEndpointId, data: frame);
   }
 
+  @override
+  Future<void> sendRejoin({
+    required String hostEndpointId,
+    required String playerId,
+    required String sessionToken,
+  }) async {
+    final frame = MafiaP2pProtocol.buildRejoin(
+      playerId: playerId,
+      sessionToken: sessionToken,
+    );
+    await sendIsolatedPayload(endpointId: hostEndpointId, data: frame);
+  }
+
   Future<void> _acceptEndpoint(String endpointId) async {
     await _nearby.acceptConnection(
       endpointId,
@@ -318,6 +345,52 @@ class MafiaNetworkDataSourceImpl implements MafiaNetworkDataSource {
           correlationId: correlationId,
           hostEndpointId: endpointId,
         );
+      case MafiaControlMessageType.rejoin:
+        final playerId = control.playerId;
+        final sessionToken = control.sessionToken;
+        if (playerId == null || sessionToken == null) return;
+        if (!_rejoinRequestedController.isClosed) {
+          _rejoinRequestedController.add(
+            MafiaRejoinRequest(
+              endpointId: endpointId,
+              playerId: playerId,
+              sessionToken: sessionToken,
+            ),
+          );
+        }
+      case MafiaControlMessageType.rejoinAck:
+        _emitSessionControl(
+          MafiaSessionControl(
+            type: MafiaSessionControlType.rejoinAck,
+            playerId: control.playerId,
+            accepted: control.accepted,
+          ),
+        );
+      case MafiaControlMessageType.sessionPaused:
+        _emitSessionControl(
+          MafiaSessionControl(
+            type: MafiaSessionControlType.sessionPaused,
+            playerId: control.playerId,
+            deadlineMs: control.deadlineMs,
+          ),
+        );
+      case MafiaControlMessageType.sessionResumed:
+        _emitSessionControl(
+          const MafiaSessionControl(type: MafiaSessionControlType.sessionResumed),
+        );
+      case MafiaControlMessageType.playerEliminated:
+        _emitSessionControl(
+          MafiaSessionControl(
+            type: MafiaSessionControlType.playerEliminated,
+            playerId: control.playerId,
+          ),
+        );
+    }
+  }
+
+  void _emitSessionControl(MafiaSessionControl control) {
+    if (!_sessionControlController.isClosed) {
+      _sessionControlController.add(control);
     }
   }
 
@@ -397,6 +470,7 @@ class MafiaNetworkDataSourceImpl implements MafiaNetworkDataSource {
   }
 
   void _handleDisconnected(String endpointId) {
+    _ackCoordinator.removeEndpointFromAllExpectations(endpointId);
     _removeConnectedEndpoint(endpointId);
     if (!_endpointDisconnectedController.isClosed) {
       _endpointDisconnectedController.add(endpointId);

@@ -1,5 +1,6 @@
 import '../../domain/entities/mafia_lobby_player.dart';
 import '../../domain/entities/mafia_role.dart';
+import '../../domain/entities/mafia_session_event.dart';
 
 sealed class MafiaEvent {}
 
@@ -37,3 +38,17 @@ final class ExecuteRoleAction extends MafiaEvent {
   final MafiaRole actingRole;
   final String? targetPlayerId;
 }
+
+final class CastVoteEvent extends MafiaEvent {
+  CastVoteEvent(this.targetPlayerId);
+
+  final String targetPlayerId;
+}
+
+final class MafiaSessionEventReceived extends MafiaEvent {
+  MafiaSessionEventReceived(this.event);
+
+  final MafiaSessionEvent event;
+}
+
+final class MafiaLeaveSessionEvent extends MafiaEvent {}

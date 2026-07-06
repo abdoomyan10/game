@@ -13,6 +13,32 @@ class MafiaP2pConstants {
 
   /// No ping/pong or payload within this window marks a peer as degraded.
   static const Duration healthStaleThreshold = Duration(seconds: 12);
+
+  /// Host waits this long for a dropped peer to re-handshake before elimination.
+  static const Duration reconnectGracePeriod = Duration(seconds: 10);
+
+  /// Debounce rapid host-loss signals on clients.
+  static const Duration hostLossDetectionDebounce = Duration(milliseconds: 500);
+}
+
+/// JSON envelope `type` field values for encrypted Mafia app messages.
+enum MafiaP2pMessageType {
+  handshake('handshake'),
+  playerRoster('playerRoster'),
+  playerLeft('playerLeft'),
+  gameConfigSync('gameConfigSync');
+
+  const MafiaP2pMessageType(this.value);
+
+  final String value;
+
+  static MafiaP2pMessageType? fromString(String? value) {
+    if (value == null) return null;
+    for (final type in MafiaP2pMessageType.values) {
+      if (type.value == value) return type;
+    }
+    return null;
+  }
 }
 
 /// Plaintext JSON control-frame `type` values (ping/pong/ack/phaseSync).
@@ -23,7 +49,12 @@ enum MafiaControlMessageType {
   ping('ping'),
   pong('pong'),
   ack('ack'),
-  phaseSync('phaseSync');
+  phaseSync('phaseSync'),
+  rejoin('rejoin'),
+  rejoinAck('rejoinAck'),
+  sessionPaused('sessionPaused'),
+  sessionResumed('sessionResumed'),
+  playerEliminated('playerEliminated');
 
   const MafiaControlMessageType(this.value);
 

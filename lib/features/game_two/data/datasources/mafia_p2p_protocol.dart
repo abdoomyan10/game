@@ -14,12 +14,20 @@ class MafiaControlPayload {
     this.pingId,
     this.sentAtMs,
     this.correlationId,
+    this.playerId,
+    this.sessionToken,
+    this.deadlineMs,
+    this.accepted,
   });
 
   final MafiaControlMessageType type;
   final String? pingId;
   final int? sentAtMs;
   final String? correlationId;
+  final String? playerId;
+  final String? sessionToken;
+  final int? deadlineMs;
+  final bool? accepted;
 }
 
 /// Builds and parses small JSON control frames for ping/pong/ack/phaseSync.
@@ -75,6 +83,72 @@ class MafiaP2pProtocol {
     );
   }
 
+  static Uint8List buildRejoin({
+    required String playerId,
+    required String sessionToken,
+  }) {
+    return Uint8List.fromList(
+      utf8.encode(
+        jsonEncode({
+          'type': MafiaControlMessageType.rejoin.value,
+          'playerId': playerId,
+          'sessionToken': sessionToken,
+        }),
+      ),
+    );
+  }
+
+  static Uint8List buildRejoinAck({
+    required String playerId,
+    required bool accepted,
+  }) {
+    return Uint8List.fromList(
+      utf8.encode(
+        jsonEncode({
+          'type': MafiaControlMessageType.rejoinAck.value,
+          'playerId': playerId,
+          'accepted': accepted,
+        }),
+      ),
+    );
+  }
+
+  static Uint8List buildSessionPaused({
+    required String playerId,
+    required int deadlineMs,
+  }) {
+    return Uint8List.fromList(
+      utf8.encode(
+        jsonEncode({
+          'type': MafiaControlMessageType.sessionPaused.value,
+          'playerId': playerId,
+          'deadlineMs': deadlineMs,
+        }),
+      ),
+    );
+  }
+
+  static Uint8List buildSessionResumed() {
+    return Uint8List.fromList(
+      utf8.encode(
+        jsonEncode({
+          'type': MafiaControlMessageType.sessionResumed.value,
+        }),
+      ),
+    );
+  }
+
+  static Uint8List buildPlayerEliminated({required String playerId}) {
+    return Uint8List.fromList(
+      utf8.encode(
+        jsonEncode({
+          'type': MafiaControlMessageType.playerEliminated.value,
+          'playerId': playerId,
+        }),
+      ),
+    );
+  }
+
   /// Returns null when [bytes] is not a recognized control frame.
   static MafiaControlPayload? tryParseControlPayload(List<int> bytes) {
     try {
@@ -90,6 +164,10 @@ class MafiaP2pProtocol {
         pingId: decoded['pingId'] as String?,
         sentAtMs: decoded['sentAtMs'] as int?,
         correlationId: decoded['correlationId'] as String?,
+        playerId: decoded['playerId'] as String?,
+        sessionToken: decoded['sessionToken'] as String?,
+        deadlineMs: decoded['deadlineMs'] as int?,
+        accepted: decoded['accepted'] as bool?,
       );
     } on Object {
       return null;
@@ -190,6 +268,21 @@ class MafiaAckCoordinator {
     _timeouts.remove(correlationId)?.cancel();
     _pendingAcks.remove(correlationId);
     _completers.remove(correlationId);
+  }
+
+  /// Removes [endpointId] from all pending ACK sets; completes when a set empties.
+  void removeEndpointFromAllExpectations(String endpointId) {
+    final correlationIds = _pendingAcks.keys.toList();
+    for (final correlationId in correlationIds) {
+      final pending = _pendingAcks[correlationId];
+      if (pending == null || !pending.remove(endpointId)) continue;
+      if (pending.isEmpty) {
+        _complete(correlationId);
+      }
+    }
+    for (final early in _earlyAcks.values) {
+      early.remove(endpointId);
+    }
   }
 
   void clear() {

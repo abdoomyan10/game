@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../../core/theme/app_decorations.dart';
 import '../../../../core/theme/app_text_styles.dart';
@@ -9,14 +10,19 @@ class GameCard extends StatefulWidget {
     super.key,
     required this.title,
     required this.subtitle,
-    required this.icon,
+    this.icon,
+    this.imageAsset,
     required this.accentColor,
     required this.onTap,
-  });
+  }) : assert(
+         icon != null || imageAsset != null,
+         'Either icon or imageAsset must be provided',
+       );
 
   final String title;
   final String subtitle;
-  final IconData icon;
+  final IconData? icon;
+  final String? imageAsset;
   final Color accentColor;
   final VoidCallback onTap;
 
@@ -70,11 +76,14 @@ class _GameCardState extends State<GameCard> {
                         ],
                       ),
                     ),
-                    Icon(
-                      widget.icon,
-                      size: 56,
-                      color: Colors.white.withValues(alpha: 0.9),
-                    ),
+                    if (widget.imageAsset != null)
+                      _AssetIcon(path: widget.imageAsset!)
+                    else
+                      Icon(
+                        widget.icon,
+                        size: 56,
+                        color: Colors.white.withValues(alpha: 0.9),
+                      ),
                   ],
                 ),
               ),
@@ -82,6 +91,31 @@ class _GameCardState extends State<GameCard> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _AssetIcon extends StatelessWidget {
+  const _AssetIcon({required this.path});
+
+  final String path;
+
+  @override
+  Widget build(BuildContext context) {
+    if (path.toLowerCase().endsWith('.svg')) {
+      return SvgPicture.asset(
+        path,
+        width: 56,
+        height: 56,
+        fit: BoxFit.contain,
+      );
+    }
+
+    return Image.asset(
+      path,
+      width: 56,
+      height: 56,
+      fit: BoxFit.contain,
     );
   }
 }

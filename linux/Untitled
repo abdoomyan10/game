@@ -1,0 +1,7 @@
+
+        MafiaDayDiscussionView(
+          players: config.players,
+          isHost: isHost,
+          roundNumber: roundNumber,
+          onStartVoting: () =>
+              context.read<MafiaBloc>().add(NextPhaseEvent()),

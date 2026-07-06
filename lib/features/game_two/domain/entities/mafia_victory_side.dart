@@ -1,0 +1,1 @@
+enum MafiaVictorySide { mafia, citizens }

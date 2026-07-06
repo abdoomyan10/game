@@ -3,8 +3,8 @@ import 'package:equatable/equatable.dart';
 import '../../domain/entities/mafia_game_config.dart';
 import '../../domain/entities/mafia_lobby_player.dart';
 import '../../domain/entities/mafia_role.dart';
-
-enum MafiaVictorySide { mafia, citizens }
+import '../../domain/entities/mafia_session_end_reason.dart';
+import '../../domain/entities/mafia_victory_side.dart';
 
 sealed class MafiaState extends Equatable {
   const MafiaState();
@@ -117,26 +117,43 @@ final class MafiaVotingPhase extends MafiaState {
     required this.config,
     required this.isHost,
     required this.roundNumber,
+    this.voteCounts = const {},
+    this.myVoteTargetId,
   });
 
   final MafiaGameConfig config;
   final bool isHost;
   final int roundNumber;
+  final Map<String, int> voteCounts;
+  final String? myVoteTargetId;
 
   MafiaVotingPhase copyWith({
     MafiaGameConfig? config,
     bool? isHost,
     int? roundNumber,
+    Map<String, int>? voteCounts,
+    String? myVoteTargetId,
+    bool clearMyVoteTargetId = false,
   }) {
     return MafiaVotingPhase(
       config: config ?? this.config,
       isHost: isHost ?? this.isHost,
       roundNumber: roundNumber ?? this.roundNumber,
+      voteCounts: voteCounts ?? this.voteCounts,
+      myVoteTargetId: clearMyVoteTargetId
+          ? null
+          : (myVoteTargetId ?? this.myVoteTargetId),
     );
   }
 
   @override
-  List<Object?> get props => [config, isHost, roundNumber];
+  List<Object?> get props => [
+        config,
+        isHost,
+        roundNumber,
+        voteCounts,
+        myVoteTargetId,
+      ];
 }
 
 final class MafiaGameOver extends MafiaState {
@@ -152,4 +169,41 @@ final class MafiaGameOver extends MafiaState {
 
   @override
   List<Object?> get props => [config, winner, message];
+}
+
+final class MafiaPaused extends MafiaState {
+  const MafiaPaused({
+    required this.frozenPhase,
+    required this.reconnectingPlayerId,
+    required this.reconnectDeadline,
+    this.statusMessage,
+  });
+
+  final MafiaState frozenPhase;
+  final String reconnectingPlayerId;
+  final DateTime reconnectDeadline;
+  final String? statusMessage;
+
+  @override
+  List<Object?> get props => [
+        frozenPhase,
+        reconnectingPlayerId,
+        reconnectDeadline,
+        statusMessage,
+      ];
+}
+
+final class MafiaSessionEnded extends MafiaState {
+  const MafiaSessionEnded({
+    required this.reason,
+    required this.message,
+    this.showHostLostDialog = false,
+  });
+
+  final MafiaSessionEndReason reason;
+  final String message;
+  final bool showHostLostDialog;
+
+  @override
+  List<Object?> get props => [reason, message, showHostLostDialog];
 }

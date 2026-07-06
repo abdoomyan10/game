@@ -44,6 +44,12 @@ import '../../features/game_two/data/datasources/mafia_network_datasource.dart'
     as _i671;
 import '../../features/game_two/data/datasources/mafia_network_datasource_impl.dart'
     as _i937;
+import '../../features/game_two/data/repositories/mafia_repository_impl.dart'
+    as _i490;
+import '../../features/game_two/domain/repositories/mafia_repository.dart'
+    as _i52;
+import '../../features/game_two/domain/usecases/process_night_actions_usecase.dart'
+    as _i520;
 import '../../features/game_two/presentation/bloc/mafia_bloc.dart' as _i389;
 import '../../features/home/presentation/bloc/home_bloc.dart' as _i202;
 import '../../features/splash/presentation/bloc/splash_bloc.dart' as _i442;
@@ -65,7 +71,6 @@ extension GetItInjectableX on _i174.GetIt {
       () => registerModule.prefs,
       preResolve: true,
     );
-    gh.factory<_i389.MafiaBloc>(() => _i389.MafiaBloc());
     gh.factory<_i202.HomeBloc>(() => _i202.HomeBloc());
     gh.factory<_i442.SplashBloc>(() => _i442.SplashBloc());
     gh.lazySingleton<_i361.Dio>(() => registerModule.dio);
@@ -97,6 +102,13 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i659.P2pPermissionService>(),
       ),
     );
+    gh.lazySingleton<_i52.MafiaRepository>(
+      () => _i490.MafiaRepositoryImpl(
+        gh<_i671.MafiaNetworkDataSource>(),
+        gh<_i374.EncryptionService>(),
+        gh<_i659.P2pPermissionService>(),
+      ),
+    );
     gh.factory<_i441.EnsureP2pPermissionsUseCase>(
       () => _i441.EnsureP2pPermissionsUseCase(gh<_i92.GameRepository>()),
     );
@@ -111,6 +123,12 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i957.StartHostingUseCase>(
       () => _i957.StartHostingUseCase(gh<_i92.GameRepository>()),
+    );
+    gh.factory<_i520.ProcessNightActionsUseCase>(
+      () => _i520.ProcessNightActionsUseCase(gh<_i52.MafiaRepository>()),
+    );
+    gh.factory<_i389.MafiaBloc>(
+      () => _i389.MafiaBloc(gh<_i52.MafiaRepository>()),
     );
     gh.factory<_i578.DistributeRolesUseCase>(
       () => _i578.DistributeRolesUseCase(

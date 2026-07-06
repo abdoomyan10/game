@@ -35,7 +35,8 @@ class MockScanForRoomsUseCase extends Mock implements ScanForRoomsUseCase {}
 
 class MockJoinRoomUseCase extends Mock implements JoinRoomUseCase {}
 
-class MockDistributeRolesUseCase extends Mock implements DistributeRolesUseCase {}
+class MockDistributeRolesUseCase extends Mock
+    implements DistributeRolesUseCase {}
 
 void main() {
   late MockGameRepository repository;
@@ -75,15 +76,24 @@ void main() {
 
     when(() => repository.isHost).thenReturn(true);
     when(() => repository.players).thenAnswer((_) => playersController.stream);
-    when(() => repository.discoveredRooms).thenAnswer((_) => const Stream.empty());
-    when(() => repository.incomingPayloads).thenAnswer((_) => const Stream.empty());
-    when(() => repository.sessionEvents)
-        .thenAnswer((_) => sessionEventsController.stream);
-    when(() => repository.connectedEndpointIds)
-        .thenAnswer((_) => const Stream.empty());
-    when(() => repository.disconnect()).thenAnswer((_) async => const Right(null));
-    when(() => ensurePermissions(any()))
-        .thenAnswer((_) async => const Right(null));
+    when(
+      () => repository.discoveredRooms,
+    ).thenAnswer((_) => const Stream.empty());
+    when(
+      () => repository.incomingPayloads,
+    ).thenAnswer((_) => const Stream.empty());
+    when(
+      () => repository.sessionEvents,
+    ).thenAnswer((_) => sessionEventsController.stream);
+    when(
+      () => repository.connectedEndpointIds,
+    ).thenAnswer((_) => const Stream.empty());
+    when(
+      () => repository.disconnect(),
+    ).thenAnswer((_) async => const Right(null));
+    when(
+      () => ensurePermissions(any()),
+    ).thenAnswer((_) async => const Right(null));
 
     when(() => startHosting(any())).thenAnswer((invocation) async {
       final params = invocation.positionalArguments[0] as StartHostingParams;
@@ -96,10 +106,7 @@ void main() {
     when(() => distributeRoles(any())).thenAnswer(
       (_) async => const Right(
         DistributeRolesResult(
-          hostPayload: GamePayload(
-            role: PlayerRole.normal,
-            word: 'تفاحة',
-          ),
+          hostPayload: GamePayload(role: PlayerRole.normal, word: 'تفاحة'),
         ),
       ),
     );
@@ -111,13 +118,13 @@ void main() {
   });
 
   GameOneBloc createBloc() => GameOneBloc(
-        ensurePermissions,
-        startHosting,
-        scanForRooms,
-        joinRoom,
-        distributeRoles,
-        repository,
-      );
+    ensurePermissions,
+    startHosting,
+    scanForRooms,
+    joinRoom,
+    distributeRoles,
+    repository,
+  );
 
   Future<void> enterNameAndHost(WidgetTester tester) async {
     await tester.tap(find.text('استضافة لعبة'));
@@ -129,7 +136,9 @@ void main() {
   }
 
   group('GameOneMainPage', () {
-    testWidgets('shows role selection then lobby and gameplay flow', (tester) async {
+    testWidgets('shows role selection then lobby and gameplay flow', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: BlocProvider(
@@ -159,10 +168,7 @@ void main() {
       final bloc = createBloc();
       await tester.pumpWidget(
         MaterialApp(
-          home: BlocProvider.value(
-            value: bloc,
-            child: const GameOneMainPage(),
-          ),
+          home: BlocProvider.value(value: bloc, child: const GameOneMainPage()),
         ),
       );
       await tester.pump();
@@ -188,10 +194,7 @@ void main() {
       final bloc = createBloc();
       await tester.pumpWidget(
         MaterialApp(
-          home: BlocProvider.value(
-            value: bloc,
-            child: const GameOneMainPage(),
-          ),
+          home: BlocProvider.value(value: bloc, child: const GameOneMainPage()),
         ),
       );
       await tester.pump();
@@ -209,7 +212,7 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('لعبة ١'));
+    await tester.tap(find.text('Imposter '));
     await tester.pumpAndSettle();
 
     expect(find.text('كيف تريد اللعب؟'), findsOneWidget);

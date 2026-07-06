@@ -19,8 +19,8 @@ class HomePage extends StatelessWidget {
           current.status == HomeStatus.gameSelected,
       listener: (context, state) {
         final route = context.read<HomeBloc>().routeForGame(
-              state.selectedGameId ?? '',
-            );
+          state.selectedGameId ?? '',
+        );
         if (route != null) {
           Navigator.pushNamed(context, route);
         }
@@ -46,23 +46,23 @@ class HomePage extends StatelessWidget {
                 ),
                 const SizedBox(height: AppTheme.spacingXXXL),
                 GameCard(
-                  title: 'لعبة ١',
+                  title: 'Imposter ',
                   subtitle: 'مغامرة ممتعة',
-                  icon: Icons.extension,
+                  imageAsset: 'assets/imposter.svg',
                   accentColor: AppColors.accentGame1,
                   onTap: () => context.read<HomeBloc>().add(
-                        HomeGameSelected(GameIds.game1),
-                      ),
+                    HomeGameSelected(GameIds.game1),
+                  ),
                 ),
                 const SizedBox(height: AppTheme.spacingXL),
                 GameCard(
-                  title: 'لعبة ٢',
+                  title: 'مافيا ',
                   subtitle: 'تحدي مثير',
-                  icon: Icons.casino,
+                  imageAsset: 'assets/mafea1.png',
                   accentColor: AppColors.accentGame2,
                   onTap: () => context.read<HomeBloc>().add(
-                        HomeGameSelected(GameIds.game2),
-                      ),
+                    HomeGameSelected(GameIds.game2),
+                  ),
                 ),
               ],
             ),

@@ -10,7 +10,9 @@ void main() {
     await configureDependencies();
   });
 
-  testWidgets('App navigates from splash to home with game cards', (tester) async {
+  testWidgets('App navigates from splash to home with game cards', (
+    tester,
+  ) async {
     await tester.pumpWidget(const App());
 
     expect(find.text('ألعاب'), findsOneWidget);
@@ -19,7 +21,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('اختر لعبتك'), findsOneWidget);
-    expect(find.text('لعبة ١'), findsOneWidget);
-    expect(find.text('لعبة ٢'), findsOneWidget);
+    expect(find.text('Imposter '), findsOneWidget);
+    expect(find.text('مافيا '), findsOneWidget);
   });
 }
