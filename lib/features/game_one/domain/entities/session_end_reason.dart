@@ -1,0 +1,4 @@
+enum SessionEndReason {
+  hostDisconnected,
+  permissionDenied,
+}

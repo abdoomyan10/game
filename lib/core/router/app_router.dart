@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../di/injection.dart';
+import '../../features/game_one/presentation/bloc/game_one_bloc.dart';
+import '../../features/game_one/presentation/pages/game_one_main_page.dart';
 import '../../features/home/presentation/bloc/home_bloc.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/splash/presentation/bloc/splash_bloc.dart';
@@ -37,6 +39,13 @@ class AppRouter {
           ),
         );
       case gameOne:
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => BlocProvider(
+            create: (_) => getIt<GameOneBloc>(),
+            child: const GameOneMainPage(),
+          ),
+        );
       case gameTwo:
         return MaterialPageRoute<void>(
           settings: settings,
