@@ -40,6 +40,11 @@ import '../../features/game_one/domain/usecases/send_game_payload_usecase.dart'
 import '../../features/game_one/domain/usecases/start_hosting_usecase.dart'
     as _i957;
 import '../../features/game_one/presentation/bloc/game_one_bloc.dart' as _i617;
+import '../../features/game_two/data/datasources/mafia_network_datasource.dart'
+    as _i671;
+import '../../features/game_two/data/datasources/mafia_network_datasource_impl.dart'
+    as _i937;
+import '../../features/game_two/presentation/bloc/mafia_bloc.dart' as _i389;
 import '../../features/home/presentation/bloc/home_bloc.dart' as _i202;
 import '../../features/splash/presentation/bloc/splash_bloc.dart' as _i442;
 import '../network/api_client.dart' as _i557;
@@ -60,6 +65,7 @@ extension GetItInjectableX on _i174.GetIt {
       () => registerModule.prefs,
       preResolve: true,
     );
+    gh.factory<_i389.MafiaBloc>(() => _i389.MafiaBloc());
     gh.factory<_i202.HomeBloc>(() => _i202.HomeBloc());
     gh.factory<_i442.SplashBloc>(() => _i442.SplashBloc());
     gh.lazySingleton<_i361.Dio>(() => registerModule.dio);
@@ -77,6 +83,9 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.lazySingleton<_i329.LocalStorage>(
       () => _i180.SharedPrefsStorage(gh<_i460.SharedPreferences>()),
+    );
+    gh.lazySingleton<_i671.MafiaNetworkDataSource>(
+      () => _i937.MafiaNetworkDataSourceImpl(gh<_i659.P2pPermissionService>()),
     );
     gh.lazySingleton<_i495.NetworkDataSource>(
       () => _i170.NetworkDataSourceImpl(gh<_i659.P2pPermissionService>()),

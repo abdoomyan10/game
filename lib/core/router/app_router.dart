@@ -4,11 +4,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../di/injection.dart';
 import '../../features/game_one/presentation/bloc/game_one_bloc.dart';
 import '../../features/game_one/presentation/pages/game_one_main_page.dart';
+import '../../features/game_two/presentation/bloc/mafia_bloc.dart';
+import '../../features/game_two/presentation/pages/mafia_main_page.dart';
 import '../../features/home/presentation/bloc/home_bloc.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/splash/presentation/bloc/splash_bloc.dart';
 import '../../features/splash/presentation/pages/splash_page.dart';
-import '../theme/app_text_styles.dart';
 
 class AppRouter {
   AppRouter._();
@@ -49,7 +50,10 @@ class AppRouter {
       case gameTwo:
         return MaterialPageRoute<void>(
           settings: settings,
-          builder: (_) => const _GamePlaceholderPage(),
+          builder: (_) => BlocProvider(
+            create: (_) => getIt<MafiaBloc>(),
+            child: const MafiaMainPage(),
+          ),
         );
       default:
         return MaterialPageRoute<void>(
@@ -60,24 +64,5 @@ class AppRouter {
           ),
         );
     }
-  }
-}
-
-class _GamePlaceholderPage extends StatelessWidget {
-  const _GamePlaceholderPage();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: Center(
-        child: Text('قريباً', style: AppTextStyles.headline),
-      ),
-    );
   }
 }
