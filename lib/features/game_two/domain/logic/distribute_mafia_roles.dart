@@ -6,7 +6,8 @@ import '../entities/mafia_role.dart';
 
 /// Assigns [MafiaRole] values to lobby players using secure randomization.
 ///
-/// - Fewer than 7 players: 1 Boss, 1 Detective, 1 Doctor, rest Citizens.
+/// - 2 players: 1 Boss, 1 Citizen.
+/// - 3–6 players: 1 Boss, 1 Detective, 1 Doctor, rest Citizens.
 /// - 7 or more players: 1 Boss, 1 Silencer, 1 Detective, 1 Doctor, 1 Sniper,
 ///   rest Citizens.
 List<MafiaPlayerEntity> distributeMafiaRoles(List<MafiaLobbyPlayer> players) {
@@ -14,9 +15,9 @@ List<MafiaPlayerEntity> distributeMafiaRoles(List<MafiaLobbyPlayer> players) {
     throw ArgumentError('Cannot distribute roles to an empty roster');
   }
 
-  if (players.length < 3) {
+  if (players.length < 2) {
     throw ArgumentError(
-      'At least 3 players are required (Mafia Boss, Detective, Doctor)',
+      'At least 2 players are required',
     );
   }
 
@@ -60,6 +61,10 @@ List<MafiaPlayerEntity> distributeMafiaRoles(List<MafiaLobbyPlayer> players) {
 }
 
 List<MafiaRole> _buildRolePool(int playerCount) {
+  if (playerCount == 2) {
+    return [MafiaRole.mafiaBoss, MafiaRole.citizen];
+  }
+
   if (playerCount < 7) {
     return [
       MafiaRole.mafiaBoss,

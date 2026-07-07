@@ -1,6 +1,7 @@
 import '../../domain/entities/mafia_lobby_player.dart';
 import '../../domain/entities/mafia_role.dart';
 import '../../domain/entities/mafia_session_event.dart';
+import 'mafia_state.dart';
 
 sealed class MafiaEvent {}
 
@@ -19,13 +20,27 @@ final class DiscoverLobbyEvent extends MafiaEvent {
   final String? endpointId;
 }
 
+final class DiscoveredLobbiesUpdatedEvent extends MafiaEvent {
+  DiscoveredLobbiesUpdatedEvent(this.state);
+
+  final DiscoveringLobbies state;
+}
+
 final class PlayersUpdatedEvent extends MafiaEvent {
   PlayersUpdatedEvent(this.players);
 
   final List<MafiaLobbyPlayer> players;
 }
 
+final class CanStartGameUpdatedEvent extends MafiaEvent {
+  CanStartGameUpdatedEvent(this.canStartGame);
+
+  final bool canStartGame;
+}
+
 final class StartMafiaGame extends MafiaEvent {}
+
+final class DismissLobbyStartErrorEvent extends MafiaEvent {}
 
 final class NextPhaseEvent extends MafiaEvent {}
 

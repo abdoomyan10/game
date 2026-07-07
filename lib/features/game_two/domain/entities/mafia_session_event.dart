@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 
+import 'mafia_game_config.dart';
 import 'mafia_lobby_player.dart';
 
 sealed class MafiaSessionEvent extends Equatable {
@@ -79,4 +80,13 @@ final class RosterUpdated extends MafiaSessionEvent {
 
   @override
   List<Object?> get props => [players];
+}
+
+final class GameStarted extends MafiaSessionEvent {
+  const GameStarted(this.config);
+
+  final MafiaGameConfig config;
+
+  @override
+  List<Object?> get props => [config];
 }

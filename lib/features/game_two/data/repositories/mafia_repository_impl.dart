@@ -50,6 +50,7 @@ class MafiaRepositoryImpl with HandlingMixin implements MafiaRepository {
   final _playersController = StreamController<List<MafiaLobbyPlayer>>.broadcast();
   final _discoveredLobbiesController =
       StreamController<MafiaDiscoveredLobby>.broadcast();
+  final _canStartGameController = StreamController<bool>.broadcast();
 
   final List<MafiaLobbyPlayer> _players = [];
   final Map<String, String> _endpointToPlayerId = {};
@@ -87,10 +88,40 @@ class MafiaRepositoryImpl with HandlingMixin implements MafiaRepository {
   MafiaGameConfig? get activeGameConfig => _activeGameConfig;
 
   @override
-  void setActiveGameConfig(MafiaGameConfig? config) {
+  List<MafiaLobbyPlayer> get lobbyPlayers => List.unmodifiable(_players);
+
+  @override
+  Future<void> setActiveGameConfig(MafiaGameConfig? config) async {
+    if (config == null) {
+      _activeGameConfig = null;
+      _emitCanStartGame();
+      return;
+    }
+
+    if (!_isHost) {
+      _activeGameConfig = config;
+      return;
+    }
+
+    final wasInProgress = _activeGameConfig?.state == MafiaGameState.inProgress;
     _activeGameConfig = config;
-    if (_isHost && config != null) {
-      unawaited(_broadcastGameConfigSync());
+
+    final delivered = await _broadcastGameConfigSync();
+    final isInitialStart =
+        !wasInProgress && config.state == MafiaGameState.inProgress;
+
+    if (isInitialStart && delivered == 0 && _hasRemotePeers()) {
+      unawaited(_retryGameConfigSyncBurst());
+    }
+  }
+
+  Future<void> _retryGameConfigSyncBurst() async {
+    for (var attempt = 0; attempt < 3; attempt++) {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      if (_activeGameConfig?.state != MafiaGameState.inProgress) return;
+
+      final delivered = await _broadcastGameConfigSync();
+      if (delivered > 0) return;
     }
   }
 
@@ -103,6 +134,12 @@ class MafiaRepositoryImpl with HandlingMixin implements MafiaRepository {
   @override
   Stream<MafiaDiscoveredLobby> get discoveredLobbies =>
       _discoveredLobbiesController.stream;
+
+  @override
+  bool get canStartGame => _computeCanStartGame();
+
+  @override
+  Stream<bool> get canStartGameUpdates => _canStartGameController.stream;
 
   @override
   Future<Either<Failure, void>> ensurePermissions() {
@@ -125,6 +162,7 @@ class MafiaRepositoryImpl with HandlingMixin implements MafiaRepository {
         ..clear()
         ..add(MafiaLobbyPlayer(id: 'local', name: userName, isHost: true));
       _emitPlayers();
+      _emitCanStartGame();
 
       _listenToAllStreams();
       await _network.startHosting(userName: userName);
@@ -158,6 +196,7 @@ class MafiaRepositoryImpl with HandlingMixin implements MafiaRepository {
 
       _listenToAllStreams();
       await _network.connectToHost(endpointId: endpointId);
+      await _network.stopDiscovery();
       _localAssignedPlayerId = endpointId;
 
       _players
@@ -250,14 +289,18 @@ class MafiaRepositoryImpl with HandlingMixin implements MafiaRepository {
         _network.connectedEndpoints.listen((endpointIds) async {
       if (_isHost) {
         for (final endpointId in endpointIds) {
-          if (_handshakeSentTo.contains(endpointId)) continue;
-          _handshakeSentTo.add(endpointId);
-          await _sendHandshake(endpointId);
+          final alreadyHandshook = _handshakeSentTo.contains(endpointId);
+          if (!alreadyHandshook) {
+            _handshakeSentTo.add(endpointId);
+            await _sendHandshake(endpointId);
+          }
 
           final playerId = _endpointToPlayerId[endpointId];
           if (playerId == null) {
             _registerEndpoint(endpointId, endpointId);
             _addGuestPlayer(endpointId);
+          } else if (!_players.any((player) => player.id == playerId)) {
+            _addGuestPlayer(playerId);
           }
         }
 
@@ -275,6 +318,8 @@ class MafiaRepositoryImpl with HandlingMixin implements MafiaRepository {
         if (_players.length > 1 && !_isGameInProgress) {
           await _broadcastPlayerRoster();
         }
+
+        _emitCanStartGame();
       } else {
         if (_lastConnected.isNotEmpty && endpointIds.isEmpty) {
           _scheduleHostLossDetection();
@@ -544,9 +589,9 @@ class MafiaRepositoryImpl with HandlingMixin implements MafiaRepository {
     await _broadcastEncrypted(wire);
   }
 
-  Future<void> _broadcastGameConfigSync() async {
+  Future<int> _broadcastGameConfigSync() async {
     if (!_isHost || !_encryption.hasSessionKey || _activeGameConfig == null) {
-      return;
+      return 0;
     }
 
     final message = jsonEncode({
@@ -554,18 +599,33 @@ class MafiaRepositoryImpl with HandlingMixin implements MafiaRepository {
       'config': _encodeGameConfig(_activeGameConfig!),
     });
     final wire = _encryption.encryptData(message);
-    await _broadcastEncrypted(wire);
+    return _broadcastEncrypted(wire);
   }
 
-  Future<void> _broadcastEncrypted(String wire) async {
+  Future<int> _broadcastEncrypted(String wire) async {
     final data = Uint8List.fromList(utf8.encode(wire));
-    for (final endpointId in _playerIdToEndpoint.values) {
+    var delivered = 0;
+    for (final endpointId in _broadcastTargets()) {
       try {
         await _network.sendIsolatedPayload(endpointId: endpointId, data: data);
+        delivered++;
       } on MafiaTransportException {
         // Skip unreachable peers.
       }
     }
+    return delivered;
+  }
+
+  Set<String> _broadcastTargets() {
+    if (_isHost) {
+      if (_lastConnected.isNotEmpty) return _lastConnected;
+      return _playerIdToEndpoint.values.toSet();
+    }
+    return _playerIdToEndpoint.values.toSet();
+  }
+
+  bool _hasRemotePeers() {
+    return _lastConnected.isNotEmpty || _playerIdToEndpoint.isNotEmpty;
   }
 
   Map<String, dynamic> _encodeGameConfig(MafiaGameConfig config) {
@@ -629,7 +689,13 @@ class MafiaRepositoryImpl with HandlingMixin implements MafiaRepository {
       if (type == MafiaP2pMessageType.gameConfigSync) {
         final configMap = map['config'] as Map<String, dynamic>?;
         if (configMap != null) {
-          _activeGameConfig = _decodeGameConfig(configMap);
+          final config = _decodeGameConfig(configMap);
+          if (config != null) {
+            _activeGameConfig = config;
+            if (!_isHost) {
+              _sessionEventsController.add(GameStarted(config));
+            }
+          }
         }
         return;
       }
@@ -739,6 +805,7 @@ class MafiaRepositoryImpl with HandlingMixin implements MafiaRepository {
     _playerIdToEndpoint.remove(playerId);
     _emitPlayers();
     _sessionEventsController.add(PeerDisconnected(playerId));
+    _emitCanStartGame();
   }
 
   void _removeRemotePlayer(String playerId) {
@@ -755,6 +822,22 @@ class MafiaRepositoryImpl with HandlingMixin implements MafiaRepository {
   void _emitPlayers() {
     if (!_playersController.isClosed) {
       _playersController.add(List.unmodifiable(_players));
+    }
+  }
+
+  bool _computeCanStartGame() {
+    if (!_isHost || _isGameInProgress) return false;
+    if (_players.length < MafiaP2pConstants.minPlayersToStart) return false;
+    if (_lastConnected.isEmpty) return false;
+
+    final remotePlayerCount =
+        _players.where((player) => !player.isHost).length;
+    return remotePlayerCount > 0;
+  }
+
+  void _emitCanStartGame() {
+    if (!_canStartGameController.isClosed) {
+      _canStartGameController.add(_computeCanStartGame());
     }
   }
 
@@ -799,6 +882,7 @@ class MafiaRepositoryImpl with HandlingMixin implements MafiaRepository {
     _encryption.clearSessionKey();
 
     _emitPlayers();
+    _emitCanStartGame();
   }
 
   Future<Either<Failure, T>> _wrapP2pHandling<T>({

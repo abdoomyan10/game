@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/main_button.dart';
+import '../../data/constants/mafia_p2p_constants.dart';
 import '../../domain/entities/mafia_lobby_player.dart';
 import '../bloc/mafia_bloc.dart';
 import '../bloc/mafia_event.dart';
@@ -14,10 +15,12 @@ class MafiaLobbyView extends StatelessWidget {
     super.key,
     required this.players,
     required this.isHost,
+    required this.canStartGame,
   });
 
   final List<MafiaLobbyPlayer> players;
   final bool isHost;
+  final bool canStartGame;
 
   @override
   Widget build(BuildContext context) {
@@ -34,11 +37,21 @@ class MafiaLobbyView extends StatelessWidget {
           const SizedBox(height: AppTheme.spacingS),
           Text(
             isHost
-                ? 'انتظر انضمام اللاعبين ثم ابدأ اللعبة (٣ لاعبين على الأقل)'
+                ? 'انتظر انضمام اللاعبين ثم ابدأ اللعبة (لاعبان على الأقل)'
                 : 'في انتظار المضيف لبدء اللعبة...',
             style: AppTextStyles.body,
             textAlign: TextAlign.center,
           ),
+          if (isHost &&
+              players.length >= MafiaP2pConstants.minPlayersToStart &&
+              !canStartGame) ...[
+            const SizedBox(height: AppTheme.spacingS),
+            Text(
+              'جاري تأكيد الاتصال…',
+              style: AppTextStyles.body.copyWith(color: AppColors.onSurface),
+              textAlign: TextAlign.center,
+            ),
+          ],
           const SizedBox(height: AppTheme.spacingXXL),
           Expanded(
             child: ListView.separated(
@@ -66,7 +79,8 @@ class MafiaLobbyView extends StatelessWidget {
             const SizedBox(height: AppTheme.spacingL),
             MainButton(
               text: 'بدء اللعبة',
-              onPressed: players.length >= 3
+              onPressed: canStartGame &&
+                      players.length >= MafiaP2pConstants.minPlayersToStart
                   ? () => context.read<MafiaBloc>().add(StartMafiaGame())
                   : null,
             ),

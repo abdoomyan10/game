@@ -13,13 +13,19 @@ abstract class MafiaRepository {
 
   MafiaGameConfig? get activeGameConfig;
 
-  void setActiveGameConfig(MafiaGameConfig? config);
+  List<MafiaLobbyPlayer> get lobbyPlayers;
+
+  Future<void> setActiveGameConfig(MafiaGameConfig? config);
 
   Stream<MafiaSessionEvent> get sessionEvents;
 
   Stream<List<MafiaLobbyPlayer>> get players;
 
   Stream<MafiaDiscoveredLobby> get discoveredLobbies;
+
+  bool get canStartGame;
+
+  Stream<bool> get canStartGameUpdates;
 
   Future<Either<Failure, void>> ensurePermissions();
 

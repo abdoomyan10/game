@@ -19,6 +19,9 @@ class MafiaP2pConstants {
 
   /// Debounce rapid host-loss signals on clients.
   static const Duration hostLossDetectionDebounce = Duration(milliseconds: 500);
+
+  /// Minimum lobby players required before the host can start a session.
+  static const int minPlayersToStart = 2;
 }
 
 /// JSON envelope `type` field values for encrypted Mafia app messages.

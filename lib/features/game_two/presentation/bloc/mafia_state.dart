@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 
+import '../../domain/entities/mafia_discovered_lobby.dart';
 import '../../domain/entities/mafia_game_config.dart';
 import '../../domain/entities/mafia_lobby_player.dart';
 import '../../domain/entities/mafia_role.dart';
@@ -17,31 +18,75 @@ final class MafiaInitial extends MafiaState {
   const MafiaInitial();
 }
 
+final class DiscoveringLobbies extends MafiaState {
+  const DiscoveringLobbies({
+    required this.userName,
+    required this.lobbies,
+    this.isJoining = false,
+  });
+
+  final String userName;
+  final List<MafiaDiscoveredLobby> lobbies;
+  final bool isJoining;
+
+  DiscoveringLobbies copyWith({
+    String? userName,
+    List<MafiaDiscoveredLobby>? lobbies,
+    bool? isJoining,
+  }) {
+    return DiscoveringLobbies(
+      userName: userName ?? this.userName,
+      lobbies: lobbies ?? this.lobbies,
+      isJoining: isJoining ?? this.isJoining,
+    );
+  }
+
+  @override
+  List<Object?> get props => [userName, lobbies, isJoining];
+}
+
 final class MafiaLobby extends MafiaState {
   const MafiaLobby({
     required this.players,
     required this.isHost,
     required this.userName,
+    this.canStartGame = false,
+    this.startErrorMessage,
   });
 
   final List<MafiaLobbyPlayer> players;
   final bool isHost;
   final String userName;
+  final bool canStartGame;
+  final String? startErrorMessage;
 
   MafiaLobby copyWith({
     List<MafiaLobbyPlayer>? players,
     bool? isHost,
     String? userName,
+    bool? canStartGame,
+    String? startErrorMessage,
+    bool clearStartErrorMessage = false,
   }) {
     return MafiaLobby(
       players: players ?? this.players,
       isHost: isHost ?? this.isHost,
       userName: userName ?? this.userName,
+      canStartGame: canStartGame ?? this.canStartGame,
+      startErrorMessage: clearStartErrorMessage
+          ? null
+          : (startErrorMessage ?? this.startErrorMessage),
     );
   }
 
   @override
-  List<Object?> get props => [players, isHost, userName];
+  List<Object?> get props => [
+        players,
+        isHost,
+        userName,
+        canStartGame,
+        startErrorMessage,
+      ];
 }
 
 final class MafiaNightPhase extends MafiaState {

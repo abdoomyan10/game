@@ -7,6 +7,7 @@ import '../bloc/mafia_event.dart';
 import '../bloc/mafia_state.dart';
 import '../widgets/connection_lost_host_dialog.dart';
 import '../widgets/mafia_day_discussion_view.dart';
+import '../widgets/mafia_discovering_lobbies_view.dart';
 import '../widgets/mafia_game_over_view.dart';
 import '../widgets/mafia_initial_view.dart';
 import '../widgets/mafia_lobby_view.dart';
@@ -44,7 +45,22 @@ class _MafiaMainPageState extends State<MafiaMainPage> {
         ),
       ),
       body: BlocConsumer<MafiaBloc, MafiaState>(
+        listenWhen: (previous, current) {
+          if (current is MafiaLobby && current.startErrorMessage != null) {
+            return previous is! MafiaLobby ||
+                previous.startErrorMessage != current.startErrorMessage;
+          }
+          return current is MafiaSessionEnded;
+        },
         listener: (context, state) async {
+          if (state is MafiaLobby && state.startErrorMessage != null) {
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(SnackBar(content: Text(state.startErrorMessage!)));
+            context.read<MafiaBloc>().add(DismissLobbyStartErrorEvent());
+            return;
+          }
+
           if (state is MafiaSessionEnded) {
             if (state.showHostLostDialog) {
               await showConnectionLostHostDialog(context);
@@ -86,9 +102,17 @@ class _MafiaMainPageState extends State<MafiaMainPage> {
   Widget _buildPhaseContent(BuildContext context, MafiaState state) {
     return switch (state) {
       MafiaInitial() => const MafiaInitialView(),
-      MafiaLobby(:final players, :final isHost) => MafiaLobbyView(
+      DiscoveringLobbies(:final userName, :final lobbies, :final isJoining) =>
+        MafiaDiscoveringLobbiesView(
+          userName: userName,
+          lobbies: lobbies,
+          isJoining: isJoining,
+        ),
+      MafiaLobby(:final players, :final isHost, :final canStartGame) =>
+        MafiaLobbyView(
           players: players,
           isHost: isHost,
+          canStartGame: canStartGame,
         ),
       MafiaNightPhase(
         :final activeWakeRole,

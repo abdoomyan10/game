@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../../core/error/failure.dart';
+import '../../domain/entities/mafia_discovered_lobby.dart';
 import '../../domain/entities/mafia_game_config.dart';
 import '../../domain/entities/mafia_game_state.dart';
 import '../../domain/entities/mafia_lobby_player.dart';
@@ -15,6 +16,7 @@ import '../../domain/entities/mafia_victory_side.dart';
 import '../../domain/logic/distribute_mafia_roles.dart';
 import '../../domain/logic/eliminate_player.dart';
 import '../../domain/repositories/mafia_repository.dart';
+import '../../data/constants/mafia_p2p_constants.dart';
 import 'mafia_event.dart';
 import 'mafia_state.dart';
 
@@ -24,8 +26,11 @@ class MafiaBloc extends Bloc<MafiaEvent, MafiaState> {
     on<InitMafiaFlow>(_onInitMafiaFlow);
     on<HostLobbyEvent>(_onHostLobby);
     on<DiscoverLobbyEvent>(_onDiscoverLobby);
+    on<DiscoveredLobbiesUpdatedEvent>(_onDiscoveredLobbiesUpdated);
     on<PlayersUpdatedEvent>(_onPlayersUpdated);
+    on<CanStartGameUpdatedEvent>(_onCanStartGameUpdated);
     on<StartMafiaGame>(_onStartMafiaGame);
+    on<DismissLobbyStartErrorEvent>(_onDismissLobbyStartError);
     on<NextPhaseEvent>(_onNextPhase);
     on<ExecuteRoleAction>(_onExecuteRoleAction);
     on<CastVoteEvent>(_onCastVote);
@@ -45,11 +50,16 @@ class MafiaBloc extends Bloc<MafiaEvent, MafiaState> {
     MafiaRole.sniper,
   ];
 
+  static const _startGameErrorMessage =
+      'تعذر بدء اللعبة — تحقق من اتصال اللاعبين';
+
   int _roundNumber = 1;
   MafiaState? _frozenPhase;
 
   StreamSubscription<List<MafiaLobbyPlayer>>? _playersSub;
   StreamSubscription<MafiaSessionEvent>? _sessionSub;
+  StreamSubscription<bool>? _canStartGameSub;
+  StreamSubscription<MafiaDiscoveredLobby>? _discoveredLobbiesSub;
 
   Future<void> _onInitMafiaFlow(
     InitMafiaFlow event,
@@ -103,6 +113,11 @@ class MafiaBloc extends Bloc<MafiaEvent, MafiaState> {
     DiscoverLobbyEvent event,
     Emitter<MafiaState> emit,
   ) async {
+    if (event.endpointId != null) {
+      await _joinDiscoveredLobby(event, emit);
+      return;
+    }
+
     _cancelSubscriptions();
 
     final permission = await _repository.ensurePermissions();
@@ -113,37 +128,56 @@ class MafiaBloc extends Bloc<MafiaEvent, MafiaState> {
       return;
     }
 
-    _subscribeToRepositoryStreams();
-
-    if (event.endpointId != null) {
-      final result = await _repository.joinLobby(
-        endpointId: event.endpointId!,
+    emit(
+      DiscoveringLobbies(
         userName: event.userName,
-      );
-      result.fold(
-        (failure) => _emitSessionEnded(emit, failure),
-        (_) {
-          emit(
-            MafiaLobby(
-              players: [
-                MafiaLobbyPlayer(
-                  id: _hostPlayerId,
-                  name: event.userName,
-                  isHost: false,
-                ),
-              ],
-              isHost: false,
-              userName: event.userName,
-            ),
-          );
-        },
-      );
-      return;
-    }
+        lobbies: const [],
+      ),
+    );
+
+    _subscribeToSessionEvents();
+    _subscribeToDiscoveredLobbies();
 
     final result = await _repository.scanForLobbies(event.userName);
     result.fold(
       (failure) => _emitSessionEnded(emit, failure),
+      (_) {},
+    );
+  }
+
+  Future<void> _joinDiscoveredLobby(
+    DiscoverLobbyEvent event,
+    Emitter<MafiaState> emit,
+  ) async {
+    final current = state;
+    if (current is! DiscoveringLobbies) return;
+
+    emit(current.copyWith(isJoining: true));
+
+    final permission = await _repository.ensurePermissions();
+    if (permission.fold((failure) {
+      emit(current.copyWith(isJoining: false));
+      _emitSessionEnded(emit, failure);
+      return true;
+    }, (_) => false)) {
+      return;
+    }
+
+    await _discoveredLobbiesSub?.cancel();
+    _discoveredLobbiesSub = null;
+
+    _subscribeToRepositoryStreams();
+
+    final result = await _repository.joinLobby(
+      endpointId: event.endpointId!,
+      userName: event.userName,
+    );
+
+    result.fold(
+      (failure) {
+        emit(current.copyWith(isJoining: false));
+        _emitSessionEnded(emit, failure);
+      },
       (_) {
         emit(
           MafiaLobby(
@@ -162,6 +196,13 @@ class MafiaBloc extends Bloc<MafiaEvent, MafiaState> {
     );
   }
 
+  void _onDiscoveredLobbiesUpdated(
+    DiscoveredLobbiesUpdatedEvent event,
+    Emitter<MafiaState> emit,
+  ) {
+    emit(event.state);
+  }
+
   void _onPlayersUpdated(
     PlayersUpdatedEvent event,
     Emitter<MafiaState> emit,
@@ -172,13 +213,40 @@ class MafiaBloc extends Bloc<MafiaEvent, MafiaState> {
     emit(current.copyWith(players: event.players));
   }
 
-  void _onStartMafiaGame(StartMafiaGame event, Emitter<MafiaState> emit) {
+  void _onCanStartGameUpdated(
+    CanStartGameUpdatedEvent event,
+    Emitter<MafiaState> emit,
+  ) {
     final current = state;
     if (current is! MafiaLobby || !current.isHost) return;
-    if (current.players.length < 3) return;
+
+    emit(current.copyWith(canStartGame: event.canStartGame));
+  }
+
+  Future<void> _onStartMafiaGame(
+    StartMafiaGame event,
+    Emitter<MafiaState> emit,
+  ) async {
+    final current = state;
+    if (current is! MafiaLobby || !current.isHost) return;
+
+    final lobbyPlayers = _repository.lobbyPlayers;
+    final playersForStart = lobbyPlayers.length >= current.players.length
+        ? lobbyPlayers
+        : current.players;
+
+    if (playersForStart.length < MafiaP2pConstants.minPlayersToStart) {
+      emit(
+        current.copyWith(
+          startErrorMessage: _startGameErrorMessage,
+          clearStartErrorMessage: false,
+        ),
+      );
+      return;
+    }
 
     try {
-      final playersWithRoles = distributeMafiaRoles(current.players);
+      final playersWithRoles = distributeMafiaRoles(playersForStart);
       final config = MafiaGameConfig(
         state: MafiaGameState.inProgress,
         phase: MafiaPhase.night,
@@ -186,9 +254,17 @@ class MafiaBloc extends Bloc<MafiaEvent, MafiaState> {
       );
 
       final wakeRoles = _wakeRolesForConfig(config);
-      if (wakeRoles.isEmpty) return;
+      if (wakeRoles.isEmpty) {
+        emit(
+          current.copyWith(
+            startErrorMessage: _startGameErrorMessage,
+            clearStartErrorMessage: false,
+          ),
+        );
+        return;
+      }
 
-      _repository.setActiveGameConfig(config);
+      await _repository.setActiveGameConfig(config);
       _roundNumber = 1;
       emit(
         MafiaNightPhase(
@@ -200,8 +276,55 @@ class MafiaBloc extends Bloc<MafiaEvent, MafiaState> {
         ),
       );
     } on ArgumentError {
-      emit(current);
+      emit(
+        current.copyWith(
+          startErrorMessage: _startGameErrorMessage,
+          clearStartErrorMessage: false,
+          canStartGame: _repository.canStartGame,
+        ),
+      );
+    } catch (_) {
+      if (_repository.activeGameConfig?.state == MafiaGameState.inProgress) {
+        await _repository.setActiveGameConfig(null);
+      }
+      emit(
+        current.copyWith(
+          startErrorMessage: _startGameErrorMessage,
+          clearStartErrorMessage: false,
+          canStartGame: _repository.canStartGame,
+        ),
+      );
     }
+  }
+
+  void _onDismissLobbyStartError(
+    DismissLobbyStartErrorEvent event,
+    Emitter<MafiaState> emit,
+  ) {
+    final current = state;
+    if (current is! MafiaLobby) return;
+
+    emit(current.copyWith(clearStartErrorMessage: true));
+  }
+
+  void _emitNightPhaseFromConfig(
+    Emitter<MafiaState> emit,
+    MafiaGameConfig config, {
+    required bool isHost,
+  }) {
+    final wakeRoles = _wakeRolesForConfig(config);
+    if (wakeRoles.isEmpty) return;
+
+    _roundNumber = 1;
+    emit(
+      MafiaNightPhase(
+        config: config,
+        activeWakeRole: wakeRoles.first,
+        completedWakeRoles: const {},
+        isHost: isHost,
+        roundNumber: _roundNumber,
+      ),
+    );
   }
 
   void _onExecuteRoleAction(
@@ -283,7 +406,7 @@ class MafiaBloc extends Bloc<MafiaEvent, MafiaState> {
         final baseConfig = _configFromPhase(base);
         if (base == null || baseConfig == null) return;
         final updatedConfig = eliminatePlayer(baseConfig, playerId);
-        _repository.setActiveGameConfig(updatedConfig);
+        unawaited(_repository.setActiveGameConfig(updatedConfig));
         final updatedPhase = _phaseWithConfig(base, updatedConfig);
         _frozenPhase = null;
         final gameOver = _checkVictory(updatedConfig);
@@ -296,6 +419,10 @@ class MafiaBloc extends Bloc<MafiaEvent, MafiaState> {
         if (state is MafiaLobby) {
           emit((state as MafiaLobby).copyWith(players: players));
         }
+      case GameStarted(:final config):
+        final current = state;
+        if (current is! MafiaLobby || current.isHost) return;
+        _emitNightPhaseFromConfig(emit, config, isHost: false);
       case HostDisconnected():
         await _endSession(
           emit,
@@ -303,9 +430,21 @@ class MafiaBloc extends Bloc<MafiaEvent, MafiaState> {
           message: 'انقطع الاتصال بالمضيف',
           showHostLostDialog: true,
         );
+      case HostAdvertiserLost(:final endpointId):
+        final current = state;
+        if (current is DiscoveringLobbies && !current.isJoining) {
+          add(
+            DiscoveredLobbiesUpdatedEvent(
+              current.copyWith(
+                lobbies: current.lobbies
+                    .where((lobby) => lobby.endpointId != endpointId)
+                    .toList(),
+              ),
+            ),
+          );
+        }
       case PeerDisconnected():
       case SessionPaused():
-      case HostAdvertiserLost():
         break;
     }
   }
@@ -350,8 +489,10 @@ class MafiaBloc extends Bloc<MafiaEvent, MafiaState> {
             voteCounts: const {},
           ),
         );
-        _repository.setActiveGameConfig(
-          current.config.copyWith(phase: MafiaPhase.day),
+        unawaited(
+          _repository.setActiveGameConfig(
+            current.config.copyWith(phase: MafiaPhase.day),
+          ),
         );
       case MafiaVotingPhase():
         final gameOver = _checkVictory(current.config);
@@ -367,7 +508,7 @@ class MafiaBloc extends Bloc<MafiaEvent, MafiaState> {
           phase: MafiaPhase.night,
           players: resetPlayers,
         );
-        _repository.setActiveGameConfig(nightConfig);
+        unawaited(_repository.setActiveGameConfig(nightConfig));
         final wakeRoles = _wakeRolesForConfig(nightConfig);
         if (wakeRoles.isEmpty) return;
 
@@ -398,7 +539,7 @@ class MafiaBloc extends Bloc<MafiaEvent, MafiaState> {
     }
 
     final dayConfig = current.config.copyWith(phase: MafiaPhase.day);
-    _repository.setActiveGameConfig(dayConfig);
+    unawaited(_repository.setActiveGameConfig(dayConfig));
     final gameOver = _checkVictory(dayConfig);
     if (gameOver != null) {
       emit(gameOver);
@@ -487,16 +628,45 @@ class MafiaBloc extends Bloc<MafiaEvent, MafiaState> {
     _playersSub ??= _repository.players.listen((players) {
       add(PlayersUpdatedEvent(players));
     });
+    _subscribeToSessionEvents();
+    _canStartGameSub ??= _repository.canStartGameUpdates.listen((canStart) {
+      add(CanStartGameUpdatedEvent(canStart));
+    });
+  }
+
+  void _subscribeToSessionEvents() {
     _sessionSub ??= _repository.sessionEvents.listen((sessionEvent) {
       add(MafiaSessionEventReceived(sessionEvent));
+    });
+  }
+
+  void _subscribeToDiscoveredLobbies() {
+    _discoveredLobbiesSub?.cancel();
+    _discoveredLobbiesSub = _repository.discoveredLobbies.listen((lobby) {
+      final current = state;
+      if (current is! DiscoveringLobbies || current.isJoining) return;
+
+      final exists =
+          current.lobbies.any((entry) => entry.endpointId == lobby.endpointId);
+      if (exists) return;
+
+      add(
+        DiscoveredLobbiesUpdatedEvent(
+          current.copyWith(lobbies: [...current.lobbies, lobby]),
+        ),
+      );
     });
   }
 
   void _cancelSubscriptions() {
     _playersSub?.cancel();
     _sessionSub?.cancel();
+    _canStartGameSub?.cancel();
+    _discoveredLobbiesSub?.cancel();
     _playersSub = null;
     _sessionSub = null;
+    _canStartGameSub = null;
+    _discoveredLobbiesSub = null;
   }
 
   Future<void> _endSession(

@@ -27,7 +27,12 @@ void main() {
     when(() => repository.isHost).thenReturn(true);
     when(() => repository.localPlayerId).thenReturn('local');
     when(() => repository.activeGameConfig).thenReturn(null);
-    when(() => repository.setActiveGameConfig(any())).thenReturn(null);
+    when(() => repository.lobbyPlayers).thenReturn(const []);
+    when(() => repository.canStartGame).thenReturn(false);
+    when(() => repository.canStartGameUpdates)
+        .thenAnswer((_) => const Stream.empty());
+    when(() => repository.setActiveGameConfig(any()))
+        .thenAnswer((_) async {});
     when(() => repository.disconnect())
         .thenAnswer((_) async => const Right<Failure, void>(null));
   });
